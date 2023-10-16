@@ -11,7 +11,6 @@ public class ClientService {
     private final Connection connection;
     private final PreparedStatement insertClientPreparedSt;
     private final PreparedStatement getByIdPreparedSt;
-    private final PreparedStatement getMaxIdPrepareSt;
     private final PreparedStatement setNamePrepareSt;
     private final PreparedStatement deleteClientPrepareSt;
     private final PreparedStatement getAllClientsPrepareSt;
@@ -20,9 +19,9 @@ public class ClientService {
         this.connection = connection;
 
         try {
-            insertClientPreparedSt = connection.prepareStatement("insert into client (name) values (?)");
+            insertClientPreparedSt = connection.prepareStatement("insert into client (name) values (?)",
+                    PreparedStatement.RETURN_GENERATED_KEYS);
             getByIdPreparedSt = connection.prepareStatement("select name from client where id = ?");
-            getMaxIdPrepareSt = connection.prepareStatement("select max(id) from client");
             setNamePrepareSt = connection.prepareStatement("update client set name = ? where id = ?");
             deleteClientPrepareSt = connection.prepareStatement("delete from client where id = ?");
             getAllClientsPrepareSt = connection.prepareStatement("select * from client");
@@ -32,20 +31,24 @@ public class ClientService {
     }
 
     public long create(String name) {
+        long id = -1;
+
         try {
             validateClientName(name);
         } catch (ClientNameException e) {
             System.out.println(e.getMessage());
-            return -1;
+            return id;
         }
 
         try {
             insertClientPreparedSt.setString(1, name);
             insertClientPreparedSt.executeUpdate();
 
-            ResultSet resultSet = getMaxIdPrepareSt.executeQuery();
-            resultSet.next();
-            return resultSet.getLong(1);
+            ResultSet resultSet = insertClientPreparedSt.getGeneratedKeys();
+            if (resultSet != null && resultSet.next()) {
+                id = resultSet.getLong(1);
+            }
+            return id;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -127,7 +130,6 @@ public class ClientService {
             connection.close();
             insertClientPreparedSt.close();
             getByIdPreparedSt.close();
-            getMaxIdPrepareSt.close();
             setNamePrepareSt.close();
             deleteClientPrepareSt.close();
             getAllClientsPrepareSt.close();
